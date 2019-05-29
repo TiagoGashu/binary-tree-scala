@@ -54,7 +54,7 @@ class BinarySearchTreeTest extends WordSpec {
         assert(nodeMinusFive.isDefined)
       }
 
-      "returns false when searching for inexistent values" in {
+      "returns false when searching for unexistent values" in {
         assert((bst search -30).isEmpty)
         assert((bst search 50).isEmpty)
       }
