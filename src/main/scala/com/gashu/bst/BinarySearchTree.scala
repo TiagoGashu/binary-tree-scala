@@ -1,5 +1,7 @@
 package com.gashu.bst
 
+import com.gashu.bst.BinarySearchTree.RecSearchLeaf
+
 /**
   * @author tiagogashu in 28/05/19
   **/
@@ -18,6 +20,7 @@ object BinarySearchTree {
   case class RecInsert(newValue: Int, currentNode: BinarySearchTree, leftChild: Option[BinarySearchTree], rightChild: Option[BinarySearchTree])
   case class RecSearch(value: Int, currentNode: Option[BinarySearchTree])
   case class RecRemove(value: Int, parent: Option[BinarySearchTree], currentNode: BinarySearchTree, leftChild: Option[BinarySearchTree], rightChild: Option[BinarySearchTree])
+  case class RecSearchLeaf(currentNode: BinarySearchTree)
 }
 
 class BinarySearchTree(
@@ -73,20 +76,64 @@ var rightChild: Option[BinarySearchTree]
     recSearch(RecSearch(value, Some(this)))
   }
 
-  def remove(value: Int): Boolean = {
+  def remove(value: Int): BinarySearchTree = {
 
     def toRecRemove(value: Int, node: BinarySearchTree) = RecRemove(value, node.parent, node, node.leftChild, node.rightChild)
 
-    def recRemove(r: RecRemove): Boolean = r match {
-      // I'm removing the root!!
-      case RecRemove(v, None, node, _, _) if node.value == v => false
+    def recRemove(r: RecRemove): BinarySearchTree = r match {
+      case RecRemove(v, None, node, None, None) if node.value == v => null
 
-      case RecRemove(v, p, node, None, None) if node.value == v => p.get rearrange (node, None)
-      case RecRemove(v, p, node, lc, None) if node.value == v => p.get rearrange(node, lc)
-      case RecRemove(v, p, node, None, rc) if node.value == v => p.get rearrange(node, rc)
+      // cases removing root node that we need to elect a new root
+      case RecRemove(v, None, node, lc, None) if node.value == v => {
+        val lChild = lc.get
+        lChild.parent = None
+        lChild
+      }
+      case RecRemove(v, None, node, None, rc) if node.value == v => {
+        val rChild = rc.get
+        rChild.parent = None
+        rChild
+      }
+      case RecRemove(v, None, node, lc, rc) if node.value == v => {
+        val optSuccessor = searchLeaf(RecSearchLeaf(rc.get))
+        if(optSuccessor.isEmpty) throw new RuntimeException("No successor found!")
 
-      // worst case scenario
-      case RecRemove(v, p, node, _, _) if node.value == v => p.get rearrange node
+        val successor = optSuccessor.get
+
+        val sParent = successor.parent
+        if(sParent.isDefined) {
+          val splChild = sParent.get.leftChild
+          if(splChild.get eq successor) sParent.get.leftChild = None
+          else sParent.get.rightChild = None
+        }
+        successor.parent = None
+
+        lc.get.parent = optSuccessor
+        successor.leftChild = lc
+
+        rc.get.parent = optSuccessor
+        successor.rightChild = rc
+
+        successor
+      }
+
+      case RecRemove(v, p, node, None, None) if node.value == v => {
+        p.get rearrange(node, None)
+        this
+      }
+      case RecRemove(v, p, node, lc, None) if node.value == v => {
+        p.get rearrange(node, lc)
+        this
+      }
+      case RecRemove(v, p, node, None, rc) if node.value == v => {
+        p.get rearrange(node, rc)
+        this
+      }
+
+      case RecRemove(v, p, node, _, _) if node.value == v => {
+        p.get rearrangeWithSuccessor node
+        this
+      }
 
       // cases of recursive call
       case RecRemove(v, p, node, lc, _) if lc.isDefined && v < node.value =>
@@ -95,7 +142,7 @@ var rightChild: Option[BinarySearchTree]
         recRemove(RecRemove(v, Some(node), rc.get, rc.get.leftChild, rc.get.rightChild))
 
       // didn't find node to remove
-      case _ => false
+      case _ => this
     }
 
     recRemove(toRecRemove(value, this))
@@ -103,25 +150,53 @@ var rightChild: Option[BinarySearchTree]
 
   // aux
 
+  def searchLeaf(r: RecSearchLeaf): Option[BinarySearchTree] = r match {
+    case RecSearchLeaf(node) if node.leftChild.isDefined => searchLeaf(RecSearchLeaf(node.leftChild.get))
+    case RecSearchLeaf(node) if node.leftChild.isEmpty && node.rightChild.isEmpty => Some(node)
+    case RecSearchLeaf(node) if node.rightChild.isDefined => searchLeaf(RecSearchLeaf(node.rightChild.get))
+    case _ => Option.empty
+  }
+
   // grandson becomes son of this node
-  private def rearrange(son: BinarySearchTree, grandson: Option[BinarySearchTree]): Boolean = {
+  private def rearrange(son: BinarySearchTree, grandson: Option[BinarySearchTree]): Unit = {
     println("My son only has one son")
     val isLeftChild = this.leftChild.isDefined && (this.leftChild.get eq son)
     val isRightChild = this.rightChild.isDefined && (this.rightChild.get eq son)
-    if(!isLeftChild && !isRightChild) return false
+    if (!isLeftChild && !isRightChild) return null
 
-    val newSon: Option[BinarySearchTree] = if(grandson.isDefined) grandson else None
+    val newSon: Option[BinarySearchTree] = if (grandson.isDefined) grandson else None
 
+    if (newSon.isDefined) {
+      newSon.get.parent = Some(this)
+    }
     if (isLeftChild) this.leftChild = newSon
     else this.rightChild = newSon
-    true
   }
 
   // searches in-order for a substitute node
-  private def rearrange(son: BinarySearchTree): Boolean = {
-    println("My son has two sons")
-    // TODO
-    true
+  private def rearrangeWithSuccessor(son: BinarySearchTree): Unit = {
+    val optSuccessor = searchLeaf(RecSearchLeaf(son.rightChild.get))
+    if(optSuccessor.isEmpty) throw new RuntimeException("No successor found!")
+    val successor = optSuccessor.get
+
+    // successor loses his current parent
+    val successorParent = successor.parent
+    if(successorParent.isDefined) {
+      val spLChild = successorParent.get.leftChild
+      if (spLChild.isDefined && (spLChild.get eq successor)) successorParent.get.leftChild = None
+      else successorParent.get.rightChild = None
+    }
+
+    // successor children points to the children of son
+    successor.leftChild = son.leftChild
+    successor.rightChild = son.rightChild
+
+    // successor -> this (new parent)
+    successor.parent = Some(this)
+    // this -> successor
+    val isLeftChild = this.leftChild.isDefined && (this.leftChild.get eq son)
+    if(isLeftChild) this.leftChild = optSuccessor
+    else this.rightChild = optSuccessor
   }
 
 }

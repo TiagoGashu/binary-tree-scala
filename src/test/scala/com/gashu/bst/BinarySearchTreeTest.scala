@@ -11,7 +11,7 @@ class BinarySearchTreeTest extends WordSpec {
 
     "with '0' as root" should {
 
-      val bst = BinarySearchTree.createRoot(0)
+      var bst = BinarySearchTree.createRoot(0)
 
       "have leftChild when inserting -10" in {
         bst insert -10
@@ -55,25 +55,47 @@ class BinarySearchTreeTest extends WordSpec {
       }
 
       "returns false when searching for unexistent values" in {
-        assert((bst search -30).isEmpty)
-        assert((bst search 50).isEmpty)
+        assert(bst search -30 isEmpty)
+        assert(bst search 50 isEmpty)
       }
 
       "removes leaves" in {
-        assert(bst remove -15)
+        bst = bst remove -15
+        assert((bst search -15).isEmpty)
         bst insert -15
         bst insert 15
-        assert(bst remove 15)
+        bst = bst remove 15
+        assert((bst search 15).isEmpty)
         bst insert 15
       }
 
       "removes a node with only one son" in {
-        assert(bst remove 10)
+        bst = bst remove 10
+        assert(bst search 10 isEmpty)
       }
     }
 
-    " (full test case) " when {
-      // TODO
+    "This tree should" when {
+
+      var bst = BinarySearchTree.createRoot(50)
+      bst insert 40
+      bst insert 70
+      bst insert 60
+      bst insert 80
+
+      "Have 60 as root after removal of 50" in {
+        bst = bst remove 50
+        assert(bst search 50 isEmpty)
+        assert(bst.value == 60)
+      }
+
+      "Rearrange with successor when removing 70" in {
+        bst insert 65
+        bst remove 70
+        assert(bst search 70 isEmpty)
+        assert(bst search 65 isDefined)
+      }
+
     }
 
   }
