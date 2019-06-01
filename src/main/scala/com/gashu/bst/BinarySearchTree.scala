@@ -38,10 +38,13 @@ var rightChild: Option[BinarySearchTree]
   def insert(newValue: Int): Unit = {
 
     def recInsert(r: RecInsert): Unit = r match {
-      case RecInsert(v, currentNode, _, _) if v == currentNode.value => Unit
-      case RecInsert(v, currentNode, None, _) if v < currentNode.value =>
+      case RecInsert(v, currentNode, _, _)
+        if v == currentNode.value => Unit
+      case RecInsert(v, currentNode, None, _)
+        if v < currentNode.value =>
         currentNode.leftChild = Some(new BinarySearchTree(v, Some(currentNode), None, None))
-      case RecInsert(v, currentNode, _, None) if v > currentNode.value  =>
+      case RecInsert(v, currentNode, _, None)
+        if v > currentNode.value  =>
         currentNode.rightChild = Some(new BinarySearchTree(v, Some(currentNode), None, None))
       // recursive call to lefChild
       case RecInsert(v, currentNode, lc, _)
@@ -81,57 +84,44 @@ var rightChild: Option[BinarySearchTree]
     def toRecRemove(value: Int, node: BinarySearchTree) = RecRemove(value, node.parent, node, node.leftChild, node.rightChild)
 
     def recRemove(r: RecRemove): BinarySearchTree = r match {
-      case RecRemove(v, None, node, None, None) if node.value == v => null
 
-      // cases removing root node that we need to elect a new root
-      case RecRemove(v, None, node, lc, None) if node.value == v => {
-        val lChild = lc.get
-        lChild.parent = None
-        lChild
-      }
-      case RecRemove(v, None, node, None, rc) if node.value == v => {
-        val rChild = rc.get
-        rChild.parent = None
-        rChild
-      }
       case RecRemove(v, None, node, lc, rc) if node.value == v => {
-        val optSuccessor = searchLeaf(RecSearchLeaf(rc.get))
-        if(optSuccessor.isEmpty) throw new RuntimeException("No successor found!")
+        if(lc.isEmpty && rc.isEmpty) null
+        else if(lc.isEmpty || rc.isEmpty){
+          val child = if(lc.isEmpty) rc.get else lc.get
+          child.parent = None
+          child
+        } else {
+          val optSuccessor = searchLeaf(RecSearchLeaf(rc.get))
+          if(optSuccessor.isEmpty) throw new RuntimeException("No successor found!")
 
-        val successor = optSuccessor.get
+          val successor = optSuccessor.get
 
-        val sParent = successor.parent
-        if(sParent.isDefined) {
-          val splChild = sParent.get.leftChild
-          if(splChild.get eq successor) sParent.get.leftChild = None
-          else sParent.get.rightChild = None
+          val sParent = successor.parent
+          if(sParent.isDefined) {
+            val splChild = sParent.get.leftChild
+            if(splChild.get eq successor) sParent.get.leftChild = None
+            else sParent.get.rightChild = None
+          }
+          successor.parent = None
+
+          lc.get.parent = optSuccessor
+          successor.leftChild = lc
+
+          rc.get.parent = optSuccessor
+          successor.rightChild = rc
+
+          successor
         }
-        successor.parent = None
-
-        lc.get.parent = optSuccessor
-        successor.leftChild = lc
-
-        rc.get.parent = optSuccessor
-        successor.rightChild = rc
-
-        successor
       }
 
-      case RecRemove(v, p, node, None, None) if node.value == v => {
-        p.get rearrange(node, None)
-        this
-      }
-      case RecRemove(v, p, node, lc, None) if node.value == v => {
-        p.get rearrange(node, lc)
-        this
-      }
-      case RecRemove(v, p, node, None, rc) if node.value == v => {
-        p.get rearrange(node, rc)
-        this
-      }
-
-      case RecRemove(v, p, node, _, _) if node.value == v => {
-        p.get rearrangeWithSuccessor node
+      case RecRemove(v, p, node, lc, rc) if node.value == v => {
+        if(lc.isEmpty || rc.isEmpty) {
+          val child = if (lc.isEmpty) rc else lc
+          p.get rearrange(node, child)
+        } else {
+          p.get rearrangeWithSuccessor node
+        }
         this
       }
 
